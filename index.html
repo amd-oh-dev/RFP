@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFP Finder — Live Procurement Search</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0c10;
+  --surface: #13141a;
+  --surface2: #1c1d25;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --accent: #00e5a0;
+  --accent2: #3b82f6;
+  --text: #f0f0f0;
+  --muted: #6b7280;
+  --muted2: #9ca3af;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --success: #10b981;
+  --radius: 10px;
+  --radius-lg: 14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+.app{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{flex:1;overflow:hidden}
+.logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.logo h1{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:-0.5px;color:var(--accent);line-height:1.1}
+.logo .sub{font-size:11px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.5px}
+.status-bar{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.dot.live{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 2s infinite}
+.dot.loading{background:var(--warning);animation:pulse 1s infinite}
+.dot.error{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.source-progress{padding:12px 20px;border-bottom:1px solid var(--border)}
+.sp-label{font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px}
+.sp-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:12px}
+.sp-name{color:var(--muted2)}
+.sp-status{font-family:'DM Mono',monospace;font-size:11px;display:flex;align-items:center;gap:5px}
+.sp-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.sp-dot.ok{background:var(--accent)}
+.sp-dot.loading{background:var(--warning);animation:pulse 1s infinite}
+.sp-dot.err{background:var(--danger)}
+.filter-section{padding:12px 20px;border-bottom:1px solid var(--border)}
+.filter-label{font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px}
+.filter-section select,.filter-section input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:8px 10px;font-size:13px;font-family:'Inter',sans-serif;margin-bottom:6px;transition:border-color .15s;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.filter-section input{background-image:none;padding-right:10px}
+.filter-section select:focus,.filter-section input:focus{outline:none;border-color:var(--accent)}
+.stats-grid{padding:12px 20px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.stat-num{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--accent);line-height:1}
+.stat-num.warn{color:var(--warning)}
+.stat-label{font-size:10px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace;text-transform:uppercase}
+.refresh-btn{margin:0 20px 14px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius);color:var(--muted2);padding:8px 14px;font-size:12px;cursor:pointer;width:calc(100% - 40px);display:flex;align-items:center;justify-content:center;gap:6px;transition:border-color .15s,color .15s;font-family:'DM Mono',monospace}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent)}
+.spin{display:inline-block}
+.spin.spinning{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px}
+.search-wrap{flex:1;position:relative}
+.search-wrap input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:10px 14px 10px 38px;font-size:14px;font-family:'Inter',sans-serif;transition:border-color .15s}
+.search-wrap input:focus{outline:none;border-color:var(--accent)}
+.search-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px}
+.sort-bar{display:flex;align-items:center;gap:8px}
+.sort-bar select{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--muted2);padding:7px 28px 7px 10px;font-size:12px;font-family:'DM Mono',monospace;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.sort-bar select:focus{outline:none}
+.results-count{font-size:12px;color:var(--muted);white-space:nowrap;font-family:'DM Mono',monospace}
+.results-area{padding:16px 24px;overflow-y:auto;height:calc(100vh - 57px)}
+.rfp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:10px;transition:border-color .15s,transform .1s}
+.rfp-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.card-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:var(--text);flex:1;line-height:1.35}
+.badges{display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.badge{font-size:10px;padding:3px 8px;border-radius:20px;font-family:'DM Mono',monospace;white-space:nowrap;text-transform:uppercase;letter-spacing:.3px}
+.b-open{background:rgba(16,185,129,.15);color:#6ee7b7;border:1px solid rgba(16,185,129,.3)}
+.b-closing{background:rgba(245,158,11,.15);color:#fcd34d;border:1px solid rgba(245,158,11,.3)}
+.b-closed{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.25)}
+.b-source{background:rgba(59,130,246,.12);color:#93c5fd;border:1px solid rgba(59,130,246,.25)}
+.meta-row{display:flex;flex-wrap:wrap;gap:5px 14px;margin-bottom:10px}
+.meta-item{font-size:12px;color:var(--muted2);display:flex;align-items:center;gap:4px}
+.meta-item strong{color:var(--text);font-weight:500}
+.value-strip{display:grid;grid-template-columns:repeat(3,auto) 1fr;gap:12px 20px;background:var(--surface2);border-radius:var(--radius);padding:10px 14px;margin-bottom:10px}
+.vs-item{font-size:11px}
+.vs-label{color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+.vs-val{color:var(--text);font-weight:500;font-size:13px}
+.vs-val.warn{color:var(--warning)}
+.vs-val.accent{color:var(--accent)}
+.desc-text{font-size:13px;color:var(--muted2);line-height:1.55;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rfp-card.expanded .desc-text{-webkit-line-clamp:unset}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.tag{font-size:11px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;padding:2px 7px;color:var(--muted2);font-family:'DM Mono',monospace}
+.card-footer{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);gap:8px}
+.source-info{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+.action-btns{display:flex;gap:6px}
+.btn{font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:4px;font-family:'Inter',sans-serif}
+.btn:hover{border-color:var(--muted2);color:var(--text)}
+.btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:500}
+.btn.primary:hover{background:#00ccb0}
+.loading-state,.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--muted);text-align:center}
+.loading-state .spinner{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:16px}
+.loading-state p{font-family:'DM Mono',monospace;font-size:12px;line-height:2}
+.empty-state .ico{font-size:40px;margin-bottom:12px;opacity:.4}
+.pagination{display:flex;align-items:center;gap:6px;justify-content:center;padding:16px 0 8px}
+.page-btn{background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--muted2);padding:6px 12px;font-size:12px;cursor:pointer;font-family:'DM Mono',monospace;transition:all .15s}
+.page-btn:hover,.page-btn.active{border-color:var(--accent);color:var(--accent)}
+.page-btn:disabled{opacity:.3;cursor:default}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+@media(max-width:768px){.app{grid-template-columns:1fr}.sidebar{display:none}.results-area{height:calc(100vh - 57px)}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="sidebar">
+  <div class="logo">
+    <h1>RFP Finder</h1>
+    <div class="sub">Live procurement search</div>
+  </div>
+  <div class="status-bar">
+    <div class="dot" id="status-dot"></div>
+    <span id="status-text">Loading data sources...</span>
+  </div>
+
+  <div class="source-progress">
+    <div class="sp-label">Data sources</div>
+    <div class="sp-row"><span class="sp-name">SAM.gov (Federal)</span><span class="sp-status"><span class="sp-dot loading" id="dot-sam"></span><span id="txt-sam">—</span></span></div>
+    <div class="sp-row"><span class="sp-name">BidNet Direct</span><span class="sp-status"><span class="sp-dot loading" id="dot-bidnet"></span><span id="txt-bidnet">—</span></span></div>
+    <div class="sp-row"><span class="sp-name">DemandStar</span><span class="sp-status"><span class="sp-dot loading" id="dot-demand"></span><span id="txt-demand">—</span></span></div>
+    <div class="sp-row"><span class="sp-name">State Portals</span><span class="sp-status"><span class="sp-dot loading" id="dot-states"></span><span id="txt-states">—</span></span></div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Total RFPs</div></div>
+    <div class="stat-card"><div class="stat-num warn" id="stat-closing">—</div><div class="stat-label">Closing Soon</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-open" style="font-size:18px">—</div><div class="stat-label">Open</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-sources" style="font-size:18px">4</div><div class="stat-label">Sources</div></div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-label">State</div>
+    <select id="f-state">
+      <option value="">All states</option>
+      <option>Alabama</option><option>Alaska</option><option>Arizona</option><option>Arkansas</option>
+      <option>California</option><option>Colorado</option><option>Connecticut</option><option>Delaware</option>
+      <option>Florida</option><option>Georgia</option><option>Hawaii</option><option>Idaho</option>
+      <option>Illinois</option><option>Indiana</option><option>Iowa</option><option>Kansas</option>
+      <option>Kentucky</option><option>Louisiana</option><option>Maine</option><option>Maryland</option>
+      <option>Massachusetts</option><option>Michigan</option><option>Minnesota</option><option>Mississippi</option>
+      <option>Missouri</option><option>Montana</option><option>Nebraska</option><option>Nevada</option>
+      <option>New Hampshire</option><option>New Jersey</option><option>New Mexico</option><option>New York</option>
+      <option>North Carolina</option><option>North Dakota</option><option>Ohio</option><option>Oklahoma</option>
+      <option>Oregon</option><option>Pennsylvania</option><option>Rhode Island</option><option>South Carolina</option>
+      <option>South Dakota</option><option>Tennessee</option><option>Texas</option><option>Utah</option>
+      <option>Vermont</option><option>Virginia</option><option>Washington</option><option>West Virginia</option>
+      <option>Wisconsin</option><option>Wyoming</option><option>Federal</option>
+    </select>
+  </div>
+  <div class="filter-section">
+    <div class="filter-label">Trade / Category</div>
+    <select id="f-cat">
+      <option value="">All categories</option>
+      <option>Construction &amp; Engineering</option>
+      <option>IT &amp; Technology</option>
+      <option>HVAC &amp; Mechanical</option>
+      <option>Architecture &amp; Design</option>
+      <option>Environmental &amp; Utilities</option>
+      <option>Security &amp; Safety</option>
+      <option>Janitorial &amp; Cleaning</option>
+      <option>Healthcare &amp; Medical</option>
+      <option>Transportation &amp; Logistics</option>
+      <option>Professional Services</option>
+      <option>Facilities &amp; Maintenance</option>
+      <option>Marketing &amp; Communications</option>
+      <option>Education &amp; Training</option>
+      <option>Food &amp; Catering</option>
+      <option>Other / General</option>
+    </select>
+  </div>
+  <div class="filter-section">
+    <div class="filter-label">Source &amp; Status</div>
+    <select id="f-source">
+      <option value="">All sources</option>
+      <option>SAM.gov (Federal)</option>
+      <option>BidNet Direct</option>
+      <option>DemandStar</option>
+      <option>State Portal</option>
+    </select>
+    <select id="f-status">
+      <option value="">Any status</option>
+      <option value="open">Open</option>
+      <option value="closing">Closing soon</option>
+      <option value="closed">Closed</option>
+    </select>
+    <select id="f-value">
+      <option value="">Any value</option>
+      <option value="under50">Under $50K</option>
+      <option value="50to250">$50K – $250K</option>
+      <option value="250to1m">$250K – $1M</option>
+      <option value="1mto5m">$1M – $5M</option>
+      <option value="over5m">Over $5M</option>
+    </select>
+  </div>
+
+  <button class="refresh-btn" onclick="loadAllSources()">
+    <span class="spin" id="refresh-spin">↻</span> Refresh all sources
+  </button>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="search-wrap">
+      <span class="search-ico">⌕</span>
+      <input type="text" id="f-keyword" placeholder="Search keyword, agency, RFP number, trade...">
+    </div>
+    <div class="sort-bar">
+      <select id="f-sort">
+        <option value="deadline">Sort: Deadline</option>
+        <option value="posted">Sort: Newest</option>
+        <option value="value">Sort: Value ↓</option>
+        <option value="title">Sort: A–Z</option>
+      </select>
+      <span class="results-count" id="results-count">Loading...</span>
+    </div>
+  </div>
+  <div class="results-area" id="results-area">
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p id="loading-msg">Connecting to SAM.gov...<br>Fetching BidNet...<br>Loading DemandStar...<br>Scraping state portals...</p>
+    </div>
+  </div>
+</main>
+</div>
+
+<script>
+// All RFPs fetched from serverless functions, stored client-side
+let allRFPs = [];
+let currentPage = 1;
+const PAGE_SIZE = 15;
+
+// ── Fetch from each Netlify Function ────────────────────────────────────────
+const SOURCES = [
+  { id: "sam",    endpoint: "/.netlify/functions/scrape-sam",       dotId: "dot-sam",    txtId: "txt-sam" },
+  { id: "bidnet", endpoint: "/.netlify/functions/scrape-bidnet",    dotId: "dot-bidnet", txtId: "txt-bidnet" },
+  { id: "demand", endpoint: "/.netlify/functions/scrape-demandstar",dotId: "dot-demand", txtId: "txt-demand" },
+  { id: "states", endpoint: "/.netlify/functions/scrape-states",    dotId: "dot-states", txtId: "txt-states" },
+];
+
+function setSourceStatus(s, status, count) {
+  const dot = document.getElementById(s.dotId);
+  const txt = document.getElementById(s.txtId);
+  dot.className = "sp-dot " + (status === "ok" ? "ok" : status === "err" ? "err" : "loading");
+  txt.textContent = status === "loading" ? "fetching..." : status === "err" ? "error" : `${count} RFPs`;
+}
+
+async function fetchSource(s) {
+  setSourceStatus(s, "loading", 0);
+  try {
+    const res = await fetch(s.endpoint);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const rfps = data.results || [];
+    setSourceStatus(s, "ok", rfps.length);
+    return rfps;
+  } catch (err) {
+    console.error(s.id, err.message);
+    setSourceStatus(s, "err", 0);
+    return [];
+  }
+}
+
+async function loadAllSources() {
+  const spin = document.getElementById("refresh-spin");
+  spin.classList.add("spinning");
+  document.getElementById("status-dot").className = "dot loading";
+  document.getElementById("status-text").textContent = "Fetching live data...";
+  document.getElementById("results-area").innerHTML = `<div class="loading-state"><div class="spinner"></div><p id="loading-msg">Fetching from all sources...</p></div>`;
+  document.getElementById("results-count").textContent = "Loading...";
+
+  // Reset all source dots to loading
+  SOURCES.forEach(s => setSourceStatus(s, "loading", 0));
+
+  // Fetch all sources in parallel — results stream in as each completes
+  allRFPs = [];
+  const promises = SOURCES.map(async s => {
+    const rfps = await fetchSource(s);
+    allRFPs.push(...rfps);
+    updateStats();
+    renderResults();
+  });
+
+  await Promise.all(promises);
+
+  spin.classList.remove("spinning");
+  document.getElementById("status-dot").className = "dot live";
+  document.getElementById("status-text").textContent = `Updated just now · ${allRFPs.length} RFPs`;
+  updateStats();
+  renderResults();
+}
+
+// ── Filter + Render ──────────────────────────────────────────────────────────
+function getFiltered() {
+  const state = document.getElementById("f-state").value;
+  const cat = document.getElementById("f-cat").value;
+  const src = document.getElementById("f-source").value;
+  const status = document.getElementById("f-status").value;
+  const value = document.getElementById("f-value").value;
+  const kw = document.getElementById("f-keyword").value.toLowerCase();
+  const sort = document.getElementById("f-sort").value;
+  const now = new Date();
+
+  let results = allRFPs.filter(r => {
+    if (state && r.state !== state) return false;
+    if (cat && r.category !== cat) return false;
+    if (src && r.source !== src) return false;
+    if (kw && !(
+      r.title.toLowerCase().includes(kw) ||
+      (r.description || "").toLowerCase().includes(kw) ||
+      (r.agency || "").toLowerCase().includes(kw) ||
+      (r.tags || []).some(t => t.toLowerCase().includes(kw)) ||
+      (r.rfpNum || "").toLowerCase().includes(kw)
+    )) return false;
+    if (status) {
+      const days = Math.ceil((new Date(r.deadline) - now) / 86400000);
+      if (status === "open" && days <= 7) return false;
+      if (status === "closing" && (days < 0 || days > 7)) return false;
+      if (status === "closed" && days >= 0) return false;
+    }
+    if (value) {
+      const v = r.valueNum || 0;
+      if (value === "under50" && v >= 50000) return false;
+      if (value === "50to250" && (v < 50000 || v > 250000)) return false;
+      if (value === "250to1m" && (v < 250000 || v > 1000000)) return false;
+      if (value === "1mto5m" && (v < 1000000 || v > 5000000)) return false;
+      if (value === "over5m" && v <= 5000000) return false;
+    }
+    return true;
+  });
+
+  if (sort === "deadline") results.sort((a,b) => new Date(a.deadline||"9999") - new Date(b.deadline||"9999"));
+  else if (sort === "value") results.sort((a,b) => (b.valueNum||0) - (a.valueNum||0));
+  else if (sort === "posted") results.sort((a,b) => new Date(b.posted||0) - new Date(a.posted||0));
+  else if (sort === "title") results.sort((a,b) => a.title.localeCompare(b.title));
+
+  return results;
+}
+
+function renderResults(page = currentPage) {
+  currentPage = page;
+  const filtered = getFiltered();
+  const total = filtered.length;
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const slice = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  document.getElementById("results-count").textContent = `${total.toLocaleString()} results`;
+
+  const area = document.getElementById("results-area");
+  if (!slice.length && allRFPs.length === 0) return; // still loading
+  if (!slice.length) {
+    area.innerHTML = `<div class="empty-state"><div class="ico">🔍</div><p>No RFPs match your filters.<br>Try broadening your search.</p></div>`;
+    return;
+  }
+
+  area.innerHTML = slice.map(r => renderCard(r)).join("") + renderPagination(page, pages);
+}
+
+function daysUntil(d) {
+  if (!d) return null;
+  return Math.ceil((new Date(d) - new Date()) / 86400000);
+}
+function fmtDate(d) {
+  if (!d) return "—";
+  try { return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); }
+  catch { return d; }
+}
+function esc(s="") { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function renderCard(r) {
+  const days = daysUntil(r.deadline);
+  const daysStr = days===null?"—":days<0?"Closed":days===0?"Today!":days===1?"Tomorrow":`${days}d left`;
+  const statusBadge = !r.deadline?"":days<0?`<span class="badge b-closed">Closed</span>`:days<=7?`<span class="badge b-closing">Closes in ${days}d</span>`:`<span class="badge b-open">Open</span>`;
+  const warnColor = days!==null&&days<=3&&days>=0?"color:var(--danger)":days!==null&&days<=7&&days>=0?"color:var(--warning)":"";
+  const tags = (r.tags||[]).filter(Boolean).slice(0,6);
+
+  return `<div class="rfp-card" id="c-${esc(r.id)}">
+  <div class="card-top">
+    <div class="card-title">${esc(r.title)}</div>
+    <div class="badges">${statusBadge}<span class="badge b-source">${esc(r.source)}</span></div>
+  </div>
+  <div class="meta-row">
+    <span class="meta-item">📍 <strong>${esc(r.state||"—")}</strong></span>
+    <span class="meta-item">🏛 <strong>${esc(r.agency||"—")}</strong></span>
+    ${r.category?`<span class="meta-item">📁 ${esc(r.category)}</span>`:""}
+    ${r.rfpNum?`<span class="meta-item">🔖 ${esc(r.rfpNum)}</span>`:""}
+    ${r.naicsCode?`<span class="meta-item">🏷 NAICS ${esc(r.naicsCode)}</span>`:""}
+    ${r.setAside?`<span class="meta-item">⭐ ${esc(r.setAside)}</span>`:""}
+  </div>
+  <div class="value-strip">
+    <div class="vs-item"><div class="vs-label">Est. Value</div><div class="vs-val accent">${esc(r.value||"—")}</div></div>
+    <div class="vs-item"><div class="vs-label">Deadline</div><div class="vs-val" style="${warnColor}">${fmtDate(r.deadline)}</div></div>
+    <div class="vs-item"><div class="vs-label">Time Left</div><div class="vs-val ${days!==null&&days<=7&&days>=0?'warn':''}">${daysStr}</div></div>
+    <div class="vs-item"><div class="vs-label">Posted</div><div class="vs-val">${fmtDate(r.posted)}</div></div>
+  </div>
+  ${r.description?`<div class="desc-text">${esc(r.description)}</div>`:""}
+  ${tags.length?`<div class="tags">${tags.map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>`:""}
+  <div class="card-footer">
+    <div class="source-info">📡 ${esc(r.source)}${r.contact?` · ✉ ${esc(r.contact)}`:""}</div>
+    <div class="action-btns">
+      ${r.contact?`<a class="btn" href="mailto:${esc(r.contact)}">✉ Contact</a>`:""}
+      <button class="btn" onclick="toggleExpand('c-${esc(r.id)}',this)">↕ More</button>
+      <a class="btn primary" href="${esc(r.fullUrl)}" target="_blank" rel="noopener">View RFP →</a>
+    </div>
+  </div>
+</div>`;
+}
+
+function renderPagination(page, pages) {
+  if (pages <= 1) return "";
+  let html = `<div class="pagination">`;
+  html += `<button class="page-btn" onclick="renderResults(${page-1})" ${page<=1?"disabled":""}>← Prev</button>`;
+  const s=Math.max(1,page-2), e=Math.min(pages,page+2);
+  if(s>1) html+=`<button class="page-btn" onclick="renderResults(1)">1</button><span style="color:var(--muted)">…</span>`;
+  for(let i=s;i<=e;i++) html+=`<button class="page-btn ${i===page?"active":""}" onclick="renderResults(${i})">${i}</button>`;
+  if(e<pages) html+=`<span style="color:var(--muted)">…</span><button class="page-btn" onclick="renderResults(${pages})">${pages}</button>`;
+  html += `<button class="page-btn" onclick="renderResults(${page+1})" ${page>=pages?"disabled":""}>Next →</button></div>`;
+  return html;
+}
+
+function toggleExpand(id, btn) {
+  const el = document.getElementById(id);
+  el.classList.toggle("expanded");
+  btn.textContent = el.classList.contains("expanded") ? "↕ Less" : "↕ More";
+}
+
+function updateStats() {
+  const now = new Date();
+  const open = allRFPs.filter(r=>new Date(r.deadline)>now).length;
+  const closing = allRFPs.filter(r=>{const d=Math.ceil((new Date(r.deadline)-now)/86400000);return d>=0&&d<=7;}).length;
+  document.getElementById("stat-total").textContent = allRFPs.length.toLocaleString();
+  document.getElementById("stat-open").textContent = open.toLocaleString();
+  document.getElementById("stat-closing").textContent = closing.toLocaleString();
+}
+
+// Filter listeners
+let debounce;
+["f-state","f-cat","f-source","f-status","f-value","f-sort"].forEach(id=>{
+  document.getElementById(id).addEventListener("change",()=>{clearTimeout(debounce);debounce=setTimeout(()=>renderResults(1),200)});
+});
+document.getElementById("f-keyword").addEventListener("input",()=>{clearTimeout(debounce);debounce=setTimeout(()=>renderResults(1),300)});
+
+// Boot
+loadAllSources();
+</script>
+</body>
+</html>
